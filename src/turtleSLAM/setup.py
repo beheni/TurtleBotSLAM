@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'parse_odom = turtleSLAM.parse_odom:main'
+            'parse_odom = turtleSLAM.parse_odom:main',
+            'parse_lidar = turtleSLAM.parse_lidar:main'
         ],
     },
 )
