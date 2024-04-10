@@ -1,0 +1,26 @@
+[0.487s] Invoking command in '/home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM': PYTHONPATH=/home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM/prefix_override:/home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --editable --build-directory /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM/build --no-deps symlink_data
+[0.694s] running develop
+[0.695s] /usr/lib/python3/dist-packages/setuptools/command/easy_install.py:158: EasyInstallDeprecationWarning: easy_install command is deprecated. Use build and pip and other standards-based tools.
+[0.695s]   warnings.warn(
+[0.818s] running egg_info
+[0.819s] creating turtleSLAM.egg-info
+[0.819s] writing turtleSLAM.egg-info/PKG-INFO
+[0.819s] writing dependency_links to turtleSLAM.egg-info/dependency_links.txt
+[0.819s] writing entry points to turtleSLAM.egg-info/entry_points.txt
+[0.820s] writing requirements to turtleSLAM.egg-info/requires.txt
+[0.820s] writing top-level names to turtleSLAM.egg-info/top_level.txt
+[0.820s] writing manifest file 'turtleSLAM.egg-info/SOURCES.txt'
+[0.820s] reading manifest file 'turtleSLAM.egg-info/SOURCES.txt'
+[0.821s] writing manifest file 'turtleSLAM.egg-info/SOURCES.txt'
+[0.822s] running build_ext
+[0.822s] Creating /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/lib/python3.10/site-packages/turtleSLAM.egg-link (link to .)
+[0.822s] Installing parse_odom script to /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/lib/turtleSLAM
+[0.823s] 
+[0.823s] Installed /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM
+[0.823s] running symlink_data
+[0.823s] creating /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/share/ament_index
+[0.823s] creating /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/share/ament_index/resource_index
+[0.823s] creating /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/share/ament_index/resource_index/packages
+[0.823s] symbolically linking /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM/resource/turtleSLAM -> /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/share/ament_index/resource_index/packages
+[0.823s] symbolically linking /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM/package.xml -> /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/share/turtleSLAM
+[0.857s] Invoked command in '/home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM' returned '0': PYTHONPATH=/home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM/prefix_override:/home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --editable --build-directory /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM/build --no-deps symlink_data

@@ -1,0 +1,22 @@
+running develop
+running egg_info
+creating turtleSLAM.egg-info
+writing turtleSLAM.egg-info/PKG-INFO
+writing dependency_links to turtleSLAM.egg-info/dependency_links.txt
+writing entry points to turtleSLAM.egg-info/entry_points.txt
+writing requirements to turtleSLAM.egg-info/requires.txt
+writing top-level names to turtleSLAM.egg-info/top_level.txt
+writing manifest file 'turtleSLAM.egg-info/SOURCES.txt'
+reading manifest file 'turtleSLAM.egg-info/SOURCES.txt'
+writing manifest file 'turtleSLAM.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/lib/python3.10/site-packages/turtleSLAM.egg-link (link to .)
+Installing parse_odom script to /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/lib/turtleSLAM
+
+Installed /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM
+running symlink_data
+creating /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/share/ament_index
+creating /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/share/ament_index/resource_index
+creating /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/share/ament_index/resource_index/packages
+symbolically linking /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM/resource/turtleSLAM -> /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/share/ament_index/resource_index/packages
+symbolically linking /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/build/turtleSLAM/package.xml -> /home/ostap/Documents/TurtleBotSLAM/src/turtleSLAM/install/turtleSLAM/share/turtleSLAM

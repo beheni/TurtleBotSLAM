@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'turtle_reset_odm'
+package_name = 'turtleSLAM'
 
 setup(
     name=package_name,
@@ -14,13 +14,13 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='ostap',
-    maintainer_email='ostap@todo.todo',
+    maintainer_email='ostap.seryvko@ucu.edu.ua',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'turtle_slam = turtle_reset_odm.turtle_slam:main'
+            'parse_odom = turtleSLAM.parse_odom:main'
         ],
     },
 )

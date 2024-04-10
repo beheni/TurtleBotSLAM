@@ -1,0 +1,3 @@
+[console_scripts]
+parse_odom = turtleSLAM.parse_odom:main
+
