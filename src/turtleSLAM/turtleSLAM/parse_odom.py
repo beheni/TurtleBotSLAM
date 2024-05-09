@@ -1,26 +1,28 @@
 import rclpy
+import numpy as np
+from rclpy import qos
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
-from rclpy import qos
+from sensor_msgs.msg import LaserScan
+from message_filters import ApproximateTimeSynchronizer, Subscriber
 
 class ParseOdom(Node):
     def __init__(self):
-        # qos_profile = QoSProfile(
-        #     reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT,
-        #     history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
-        #     )
         super().__init__('parse_odom')
-        self.subscription = self.create_subscription(
-            Odometry,
-            'odom',
-            self.odom_callback,
-            qos_profile=qos.qos_profile_sensor_data)
-        self.subscription 
+        self.subscription = ApproximateTimeSynchronizer([Subscriber(self, Odometry, '/odom', qos_profile=qos.qos_profile_sensor_data), 
+                                             Subscriber(self, LaserScan, '/scan')], 10, 0.25)
+        self.subscription.registerCallback(self.callback)
     
-    def odom_callback(self, msg):
-        self.get_logger().info('Received odometry message')
-        self.get_logger().info('Position: x=%f, y=%f, z=%f' % (msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z))
-        self.get_logger().info('Orientation: x=%f, y=%f, z=%f, w=%f' % (msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w))
+    def callback(self, odometry, lidar):
+        v = odometry.twist.twist.linear.x
+        w = odometry.twist.twist.angular.z
+        interval = 80
+        angles = np.arange(lidar.angle_min, lidar.angle_max, lidar.angle_increment)
+        ranges = np.array(lidar.ranges)
+        ranges = np.array(list(zip(angles, ranges)))
+        ranges = ranges[np.where(ranges[:,1] != np.inf)]
+        self.get_logger().info(f'Odometry: v={v:.3f}, w={w:.3f}')
+        self.get_logger().info(f'Lidar: {ranges[::interval]}')
 
 
 def main():
