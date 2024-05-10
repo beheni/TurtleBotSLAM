@@ -14,13 +14,13 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='ostap',
-    maintainer_email='ostap.seryvko@ucu.edu.ua',
+    maintainer_email=['ostap.seryvko@ucu.edu.ua', 'anastasiia.beheni@ucu.edu.ua'],
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'parse_odom = turtleSLAM.parse_odom:main',
+            'ekf_slam = turtleSLAM.ekf_slam:main',
             'parse_lidar = turtleSLAM.parse_lidar:main'
         ],
     },

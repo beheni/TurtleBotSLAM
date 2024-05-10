@@ -8,7 +8,7 @@ from message_filters import ApproximateTimeSynchronizer, Subscriber
 
 
 
-class ParseOdom(Node):
+class RunEKF(Node):
     
     @staticmethod
     def H(q_k, delta_k, k, num_landmarks):
@@ -83,10 +83,10 @@ class ParseOdom(Node):
             x = -v/w * np.sin(theta) + v/w * np.sin(theta + w*dt)
             y = v/w * np.cos(theta) - v/w * np.cos(theta + w*dt)
             theta = w*dt
-        G = ParseOdom.G(self.coordinates, v, w, dt)
+        G = RunEKF.G(self.coordinates, v, w, dt)
 
         self.sigma_xx = G @ self.sigma_xx @ G.T + self.R
-        if self.landmarks is not None:
+        if self.landmarks != []:
             self.sigma_xm = G @ self.sigma_xm
         
         self.coordinates = np.array([x, y, theta])
@@ -95,14 +95,16 @@ class ParseOdom(Node):
     def correction_step(self, ranges):
         x, y, theta = self.coordinates
         for ro, phi in ranges:
+            self.get_logger().info(f'ro: {ro}, phi: {phi}')
             maybe_new_landmark = np.array([x + ro*np.cos(phi + theta), y + ro*np.sin(phi + theta)])
             distances = np.zeros(len(self.landmarks))
             for k in range(len(self.landmarks)):
+                self.get_logger().info(f'Landmark: {self.landmarks[k]}')
                 z_k = self.landmarks[k]
                 delta_k = z_k - np.array([x, y])
                 q_k = delta_k.T @ delta_k
                 z_k_hat = np.array([np.sqrt(q_k), np.arctan2(delta_k[1], delta_k[0]) - theta])
-                H = ParseOdom.H(q_k, delta_k, k, len(self.landmarks))
+                H = RunEKF.H(q_k, delta_k, k, len(self.landmarks))
 
                 sigma = np.block([[self.sigma_xx, self.sigma_xm],[self.sigma_xm.T, self.sigma_mm]])
                 psi = H @ sigma @ H.T + self.Q_lidar_error
@@ -122,7 +124,7 @@ class ParseOdom(Node):
             delta_k = assined_landmark - np.array([x, y])
             q_k = delta_k.T @ delta_k
             z_k_hat = np.array([np.sqrt(q_k), np.arctan2(delta_k[1], delta_k[0]) - theta])
-            H = ParseOdom.H(q_k, delta_k, landmark_index, len(self.landmarks))
+            H = RunEKF.H(q_k, delta_k, landmark_index, len(self.landmarks))
             psi_new_landmark = H @ sigma @ H.T + self.Q_lidar_error
             Kalman_gain = sigma @ H.T @ np.linalg.inv(psi_new_landmark)
             Kalman_gain_new_landmark = Kalman_gain @ (maybe_new_landmark - z_k_hat)
@@ -138,7 +140,7 @@ class ParseOdom(Node):
 
 def main():
     rclpy.init()
-    parse_odom = ParseOdom()
+    parse_odom = RunEKF()
     rclpy.spin(parse_odom)
     parse_odom.destroy_node()
     rclpy.shutdown()
