@@ -4,7 +4,8 @@ For us, because we keep forgetting
 All paths are relative from root of this repo
 ## Run package
 ```
-source src/turtleSLAM/install/setup.bash
+./src/turtleSLAM/build.sh
+source install/setup.bash
 ros2 run turtleSLAM parse_lidar
 ```
 ## Run rosbag
