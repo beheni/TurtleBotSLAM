@@ -140,9 +140,9 @@ class RunEKF(Node):
 
 def main():
     rclpy.init()
-    parse_odom = RunEKF()
-    rclpy.spin(parse_odom)
-    parse_odom.destroy_node()
+    run_ekf = RunEKF()
+    rclpy.spin(run_ekf)
+    run_ekf.destroy_node()
     rclpy.shutdown()
 
 
