@@ -13,7 +13,12 @@ class ParseOdom(Node):
     @staticmethod
     def F(coordinates, v, w, dt):
         _, _, theta = coordinates
-        F = np.array([[1, 0, -v/w*np.cos(theta) + v/w*np.cos(theta + w*dt)],
+        if w == 0:
+            F = np.array([[1, 0, -v*np.sin(theta)*dt],
+                          [0, 1, v*np.cos(theta)*dt],
+                          [0, 0, 1]])
+        else:
+            F = np.array([[1, 0, -v/w*np.cos(theta) + v/w*np.cos(theta + w*dt)],
                       [0, 1, -v/w*np.sin(theta) + v/w*np.sin(theta + w*dt)],
                       [0, 0, 1]])
         return F
