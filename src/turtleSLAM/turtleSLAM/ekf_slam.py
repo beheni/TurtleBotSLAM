@@ -49,40 +49,45 @@ class RunEKF(Node):
         self.coordinates = np.array([0, 0, 0])
         self.landmarks = [] # Nx2
         self.sigma_xx = self.R = np.array([[1e-3, 0, 0], [0, 1e-3, 0], [0, 0, 1e-6]])
-        self.sigma_mm = None
-        self.sigma_xm = None
-        self.delta = 0.25
+        self.sigma_mm = []
+        self.sigma_xm = []
+        self.delta = 0.1
         self.subscription = ApproximateTimeSynchronizer([Subscriber(self, Odometry, '/odom', qos_profile=qos.qos_profile_sensor_data), 
                                              Subscriber(self, LaserScan, '/scan')], 10, self.delta)
         self.subscription.registerCallback(self.callback)
 
         self.Q_lidar_error = np.array([[8e-6, 0], [0, 1e-6]])
 
-        self.threshold_alpha = 0.1
+        self.threshold_alpha = 0.25
         self.publisher = self.create_publisher(String, '/coordinates', qos_profile=qos.qos_profile_sensor_data)
-        
+        self.base_x = None
+        self.base_y = None
 
 
     def callback(self, odometry, lidar):
         v = odometry.twist.twist.linear.x
         w = odometry.twist.twist.angular.z
+        if not self.base_x:
+            self.base_x = odometry.pose.pose.position.x
+            self.base_y = odometry.pose.pose.position.y
         angles = np.arange(lidar.angle_min, lidar.angle_max, lidar.angle_increment)
         ranges = np.array(lidar.ranges)
         ranges = np.array(list(zip(ranges, angles)))
-        interval = ranges.shape[0] // 10
+        interval = 80
         ranges = ranges[np.where(ranges[:,0] != np.inf)]
         ranges = ranges[::interval]
         self.prediction_step(v, w, self.delta)
         self.correction_step(ranges) #(Nx2)
-        self.publisher.publish(String(data=str(self.coordinates)))
-        
         self.get_logger().info(f'Coordinates: {self.coordinates}')
+        self.get_logger().info(f'Real coordinates: {odometry.pose.pose.position.x - self.base_x, odometry.pose.pose.position.y - self.base_y}')
+        # self.publisher.publish(String(data=str(self.coordinates)))
+        
+        # self.get_logger().info(f'Coordinates: {self.coordinates}, landmark count: {self.landmarks.shape[0]}')
 
     
 
     def prediction_step(self, v, w, dt):
         x, y, theta = self.coordinates
-        w *= np.pi
         if w == 0:
             x += v*np.cos(theta)*dt
             y += v*np.sin(theta)*dt
@@ -90,7 +95,12 @@ class RunEKF(Node):
             x += -v/w * np.sin(theta) + v/w * np.sin(theta + w*dt)
             y += v/w * np.cos(theta) - v/w * np.cos(theta + w*dt)
             theta += (w*dt)
-            theta %= np.pi
+            if theta > np.pi:
+                theta %= np.pi
+                theta -= np.pi
+            elif theta < -np.pi:
+                theta %= np.pi
+
         G = RunEKF.G(self.coordinates, v, w, dt)
 
         self.sigma_xx = G @ self.sigma_xx @ G.T + self.R
@@ -103,7 +113,7 @@ class RunEKF(Node):
     def correction_step(self, ranges):
         x, y, theta = self.coordinates
         for ro, phi in ranges:
-            maybe_new_landmark = np.array([x + ro*np.cos(phi + theta), y + ro*np.sin(phi + theta)])
+            maybe_new_landmark = np.array([ro, phi])
             distances = np.zeros(len(self.landmarks))
             for k in range(len(self.landmarks)):
                 z_k = self.landmarks[k]
@@ -112,10 +122,15 @@ class RunEKF(Node):
                 z_k_hat = np.array([np.sqrt(q_k), np.arctan2(delta_k[1], delta_k[0]) - theta])
                 H = RunEKF.H(q_k, delta_k, k, len(self.landmarks))    
                 sigma = np.block([[self.sigma_xx, self.sigma_xm],[self.sigma_xm.T, self.sigma_mm]])
+                # self.get_logger().info(f'sigma: {sigma}')
                 psi = H @ sigma @ H.T + self.Q_lidar_error
+                self.get_logger().info(f'psi: {psi}')
+                self.get_logger().info(f'psi_inv: {np.linalg.inv(psi)}')
                 # self.get_logger().info(f'H: {H}')
-                # pi_k_distance = (maybe_new_landmark - z_k_hat).T @ np.linalg.inv(psi) @ (maybe_new_landmark - z_k_hat)
-                pi_k_distance = (maybe_new_landmark - z_k_hat).T @ psi @ (maybe_new_landmark - z_k_hat)
+                pi_k_distance = (maybe_new_landmark - z_k_hat).T @ np.linalg.inv(psi) @ (maybe_new_landmark - z_k_hat)
+                self.get_logger().info(f'new_landmark-z_k_hat: {maybe_new_landmark-z_k_hat}')
+                self.get_logger().info(f'pi_k_distance: {pi_k_distance}')
+                # pi_k_distance = (maybe_new_landmark - z_k_hat).T @ psi @ (maybe_new_landmark - z_k_hat)
                 distances[k] = pi_k_distance
 
 
@@ -130,21 +145,25 @@ class RunEKF(Node):
                 self.sigma_mm = np.block([[self.sigma_mm, np.zeros((self.sigma_mm.shape[0], 2))],
                                           [np.zeros((2, self.sigma_mm.shape[1])), self.Q_lidar_error]])
                 self.sigma_xm = np.block([[self.sigma_xm, np.zeros((3, 2))]])
-                landmark_index = len(self.landmarks) - 1
+                landmark_index = self.landmarks.shape[0] - 1
             else:
                 landmark_index = np.argmin(distances)
 
             sigma = np.block([[self.sigma_xx, self.sigma_xm],[self.sigma_xm.T, self.sigma_mm]])
+            self.get_logger().info(f'sigma: {sigma}')
+
             assined_landmark = self.landmarks[landmark_index]
 
             delta_k = assined_landmark - np.array([x, y])
             q_k = delta_k.T @ delta_k
             z_k_hat = np.array([np.sqrt(q_k), np.arctan2(delta_k[1], delta_k[0]) - theta])
+
             H = RunEKF.H(q_k, delta_k, landmark_index, len(self.landmarks))
             psi_new_landmark = H @ sigma @ H.T + self.Q_lidar_error
             # Kalman_gain = sigma @ H.T @ np.linalg.inv(psi_new_landmark)
             Kalman_gain = sigma @ H.T @ psi_new_landmark
             Kalman_gain_new_landmark = Kalman_gain @ (maybe_new_landmark - z_k_hat)
+
             self.coordinates += Kalman_gain_new_landmark[:3]
             self.landmarks += Kalman_gain_new_landmark[3:].reshape(-1, 2) #errorneous behaviour
             sigma_new = (np.eye(3 + 2*len(self.landmarks)) - Kalman_gain @ H) @ sigma 
