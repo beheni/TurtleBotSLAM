@@ -6,8 +6,6 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 
-from slam_msg.msg import SLAM
-
 from std_msgs.msg import String
 
 class RunEKF(Node):
