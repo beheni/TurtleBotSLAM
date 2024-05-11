@@ -79,7 +79,7 @@ class RunEKF(Node):
         self.prediction_step(v, w, self.delta)
         self.correction_step(ranges) #(Nx2)
         self.get_logger().info(f'Coordinates: {self.coordinates}')
-        self.get_logger().info(f'Real coordinates: {odometry.pose.pose.position.x - self.base_x, odometry.pose.pose.position.y - self.base_y}')
+        # self.get_logger().info(f'Real coordinates: {odometry.pose.pose.position.x - self.base_x, odometry.pose.pose.position.y - self.base_y}')
         # self.publisher.publish(String(data=str(self.coordinates)))
         
         # self.get_logger().info(f'Coordinates: {self.coordinates}, landmark count: {self.landmarks.shape[0]}')
@@ -113,26 +113,36 @@ class RunEKF(Node):
     def correction_step(self, ranges):
         x, y, theta = self.coordinates
         for ro, phi in ranges:
-            maybe_new_landmark = np.array([ro, phi])
+            maybe_new_landmark = np.array([x + ro*np.cos(phi + theta), y + ro*np.sin(phi + theta)]) #absolute coordinates
+
             distances = np.zeros(len(self.landmarks))
             for k in range(len(self.landmarks)):
-                z_k = self.landmarks[k]
+                z_k = self.landmarks[k] #self landmarks should be in absolute coordinates
+
+
                 delta_k = z_k - np.array([x, y])
                 q_k = delta_k.T @ delta_k
-                z_k_hat = np.array([np.sqrt(q_k), np.arctan2(delta_k[1], delta_k[0]) - theta])
+                z_k_hat = np.array([np.sqrt(q_k), np.arctan2(delta_k[1], delta_k[0]) - theta]) #polar coordinates
+
                 H = RunEKF.H(q_k, delta_k, k, len(self.landmarks))    
                 sigma = np.block([[self.sigma_xx, self.sigma_xm],[self.sigma_xm.T, self.sigma_mm]])
                 # self.get_logger().info(f'sigma: {sigma}')
                 psi = H @ sigma @ H.T + self.Q_lidar_error
-                self.get_logger().info(f'psi: {psi}')
-                self.get_logger().info(f'psi_inv: {np.linalg.inv(psi)}')
+                # self.get_logger().info(f'psi: {psi}')
+                # self.get_logger().info(f'psi_inv: {np.linalg.inv(psi)}')
                 # self.get_logger().info(f'H: {H}')
-                pi_k_distance = (maybe_new_landmark - z_k_hat).T @ np.linalg.inv(psi) @ (maybe_new_landmark - z_k_hat)
-                self.get_logger().info(f'new_landmark-z_k_hat: {maybe_new_landmark-z_k_hat}')
-                self.get_logger().info(f'pi_k_distance: {pi_k_distance}')
+                maybe_new_landmark_polar = np.array([ro, phi]) #relative????
+
+                pi_k_distance = (maybe_new_landmark_polar - z_k_hat).T @ np.linalg.inv(psi) @ (maybe_new_landmark_polar - z_k_hat)
+
+
+                # self.get_logger().info(f'new_landmark-z_k_hat: {maybe_new_landmark_polar-z_k_hat}')
+                # self.get_logger().info(f'pi_k_distance: {pi_k_distance}')
                 # pi_k_distance = (maybe_new_landmark - z_k_hat).T @ psi @ (maybe_new_landmark - z_k_hat)
                 distances[k] = pi_k_distance
 
+
+            maybe_new_landmark_polar = np.array([ro, phi])
 
             landmark_index = 0
             if len(distances) == 0:
@@ -150,7 +160,7 @@ class RunEKF(Node):
                 landmark_index = np.argmin(distances)
 
             sigma = np.block([[self.sigma_xx, self.sigma_xm],[self.sigma_xm.T, self.sigma_mm]])
-            self.get_logger().info(f'sigma: {sigma}')
+            # self.get_logger().info(f'sigma: {sigma}')
 
             assined_landmark = self.landmarks[landmark_index]
 
@@ -160,9 +170,9 @@ class RunEKF(Node):
 
             H = RunEKF.H(q_k, delta_k, landmark_index, len(self.landmarks))
             psi_new_landmark = H @ sigma @ H.T + self.Q_lidar_error
-            # Kalman_gain = sigma @ H.T @ np.linalg.inv(psi_new_landmark)
-            Kalman_gain = sigma @ H.T @ psi_new_landmark
-            Kalman_gain_new_landmark = Kalman_gain @ (maybe_new_landmark - z_k_hat)
+            Kalman_gain = sigma @ H.T @ np.linalg.inv(psi_new_landmark)
+            # Kalman_gain = sigma @ H.T @ psi_new_landmark
+            Kalman_gain_new_landmark = Kalman_gain @ (maybe_new_landmark_polar - z_k_hat)
 
             self.coordinates += Kalman_gain_new_landmark[:3]
             self.landmarks += Kalman_gain_new_landmark[3:].reshape(-1, 2) #errorneous behaviour
