@@ -17,15 +17,15 @@ class RunEKF(Node):
 
         first_block1 = common * np.array([-root_q_k*delta_k[0], -root_q_k*delta_k[1], 0])
         first_block2 = common * np.array([delta_k[1], -delta_k[0], -1])
-        first_block = np.block([first_block1, first_block2])
+        first_block = np.vstack([first_block1, first_block2])
 
         second_block1 = common * np.array([root_q_k*delta_k[0], root_q_k*delta_k[1]])
         second_block2 = common * np.array([-delta_k[1], delta_k[0]])
-        second_block = np.block([second_block1, second_block2])
+        second_block = np.vstack([second_block1, second_block2])
 
         first_zeroes = np.zeros((2, 2*k))
-        second_zeroes = np.zeros((2, 2*(num_landmarks - k - 2)))
-        H = np.block([[first_block, first_zeroes], [second_block, second_zeroes]])
+        second_zeroes = np.zeros((2, 2*(num_landmarks - k - 1)))
+        H = np.block([[first_block, first_zeroes, second_block, second_zeroes]])
         return H
         
 
@@ -70,12 +70,12 @@ class RunEKF(Node):
         ranges = ranges[::interval]
         self.prediction_step(v, w, self.delta)
         self.correction_step(ranges) #(Nx2)
-        
-        self.get_logger().info(f'Odometry: v={v:.3f}, w={w:.3f}')
-        self.get_logger().info(f'Lidar: {ranges}')
+        self.get_logger().info(f'Coordinates: {self.coordinates}')
+    
 
     def prediction_step(self, v, w, dt):
         x, y, theta = self.coordinates
+        theta *= np.pi
         if w == 0:
             x += v*np.cos(theta)*dt
             y += v*np.sin(theta)*dt
@@ -90,16 +90,15 @@ class RunEKF(Node):
             self.sigma_xm = G @ self.sigma_xm
         
         self.coordinates = np.array([x, y, theta])
-        self.get_logger().info(f'Coordinates: {self.coordinates}')
+        
     
     def correction_step(self, ranges):
         x, y, theta = self.coordinates
+        theta *= np.pi 
         for ro, phi in ranges:
-            self.get_logger().info(f'ro: {ro}, phi: {phi}')
             maybe_new_landmark = np.array([x + ro*np.cos(phi + theta), y + ro*np.sin(phi + theta)])
             distances = np.zeros(len(self.landmarks))
             for k in range(len(self.landmarks)):
-                self.get_logger().info(f'Landmark: {self.landmarks[k]}')
                 z_k = self.landmarks[k]
                 delta_k = z_k - np.array([x, y])
                 q_k = delta_k.T @ delta_k
@@ -111,16 +110,24 @@ class RunEKF(Node):
                 pi_k_distance = (maybe_new_landmark - z_k_hat).T @ np.linalg.inv(psi) @ (maybe_new_landmark - z_k_hat)
                 distances[k] = pi_k_distance
             # distances_curr = self.threshold_alpha
-            landmark_index = np.argmin(distances)
-            # landmark = self.landmarks[landmark_index]
-            if distances[landmark_index] > self.threshold_alpha:
+            landmark_index = 0
+            if len(distances) == 0:
+                self.landmarks = np.array([maybe_new_landmark])
+                self.sigma_mm = self.Q_lidar_error
+                self.sigma_xm = np.zeros((3, 2))
+                landmark_index = 0
+            elif distances[np.argmin(distances)] > self.threshold_alpha:
                 self.landmarks = np.vstack([self.landmarks, maybe_new_landmark])
-                self.sigma_mm = np.block([[self.sigma_mm, np.zeros((2, 2))], [np.zeros((2, 2)), self.Q_lidar_error]])
-                self.sigma_xm = np.block([[self.sigma_xm, np.zeros((3, 2))], [np.zeros((2, 3)), np.zeros((2, 2))]])
+                self.sigma_mm = np.block([[self.sigma_mm, np.zeros((self.sigma_mm.shape[0], 2))],
+                                          [np.zeros((2, self.sigma_mm.shape[1])), self.Q_lidar_error]])
+                self.sigma_xm = np.block([[self.sigma_xm, np.zeros((3, 2))]])
+                landmark_index = len(self.landmarks) - 1
+            else:
+                landmark_index = np.argmin(distances)
+
             sigma = np.block([[self.sigma_xx, self.sigma_xm],[self.sigma_xm.T, self.sigma_mm]])
-
-
             assined_landmark = self.landmarks[landmark_index]
+
             delta_k = assined_landmark - np.array([x, y])
             q_k = delta_k.T @ delta_k
             z_k_hat = np.array([np.sqrt(q_k), np.arctan2(delta_k[1], delta_k[0]) - theta])
@@ -134,8 +141,7 @@ class RunEKF(Node):
             self.sigma_xx = sigma_new[:3, :3]
             self.sigma_mm = sigma_new[3:, 3:]
             self.sigma_xm = sigma_new[:3, 3:]
-        self.get_logger().info(f'Landmarks: {self.landmarks}')
-        self.get_logger().info(f'Robot coords: {self.coordinates}')
+        
         
 
 def main():
