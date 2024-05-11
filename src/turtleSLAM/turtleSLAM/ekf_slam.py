@@ -7,6 +7,7 @@ from sensor_msgs.msg import LaserScan
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 
 
+from std_msgs.msg import String
 
 class RunEKF(Node):
     
@@ -58,7 +59,10 @@ class RunEKF(Node):
         self.Q_lidar_error = np.array([[8e-6, 0], [0, 1e-6]])
 
         self.threshold_alpha = 0.1
-    
+        self.publisher = self.create_publisher(String, '/coordinates', qos_profile=qos.qos_profile_sensor_data)
+        
+
+
     def callback(self, odometry, lidar):
         v = odometry.twist.twist.linear.x
         w = odometry.twist.twist.angular.z
@@ -70,6 +74,8 @@ class RunEKF(Node):
         ranges = ranges[::interval]
         self.prediction_step(v, w, self.delta)
         self.correction_step(ranges) #(Nx2)
+        self.publisher.publish(String(data=str(self.coordinates)))
+        
         self.get_logger().info(f'Coordinates: {self.coordinates}')
 
     
@@ -145,7 +151,8 @@ class RunEKF(Node):
             self.sigma_xx = sigma_new[:3, :3]
             self.sigma_mm = sigma_new[3:, 3:]
             self.sigma_xm = sigma_new[:3, 3:]
-        
+
+
         
 
 def main():
