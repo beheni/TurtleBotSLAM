@@ -6,6 +6,7 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 
+from slam_msg.msg import SLAM
 
 from std_msgs.msg import String
 
@@ -81,6 +82,8 @@ class RunEKF(Node):
         self.get_logger().info(f'Coordinates: {self.coordinates}')
         # self.get_logger().info(f'Real coordinates: {odometry.pose.pose.position.x - self.base_x, odometry.pose.pose.position.y - self.base_y}')
         # self.publisher.publish(String(data=str(self.coordinates)))
+        all_data = String()
+        self.publisher.publish(all_data)
         
         # self.get_logger().info(f'Coordinates: {self.coordinates}, landmark count: {self.landmarks.shape[0]}')
 
