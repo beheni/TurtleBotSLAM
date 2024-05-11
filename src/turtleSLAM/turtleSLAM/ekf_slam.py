@@ -7,6 +7,7 @@ from sensor_msgs.msg import LaserScan
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 
 from std_msgs.msg import String
+from interfaces.msg import SLAM_data
 
 class RunEKF(Node):
     
@@ -80,7 +81,10 @@ class RunEKF(Node):
         self.get_logger().info(f'Coordinates: {self.coordinates}')
         # self.get_logger().info(f'Real coordinates: {odometry.pose.pose.position.x - self.base_x, odometry.pose.pose.position.y - self.base_y}')
         # self.publisher.publish(String(data=str(self.coordinates)))
-        all_data = String()
+        all_data = SLAM_data()
+        all_data.scan_data = lidar
+        all_data.odom_data = odometry
+
         self.publisher.publish(all_data)
         
         # self.get_logger().info(f'Coordinates: {self.coordinates}, landmark count: {self.landmarks.shape[0]}')

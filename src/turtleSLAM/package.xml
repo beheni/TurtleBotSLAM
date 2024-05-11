@@ -15,5 +15,5 @@
   <export>
     <build_type>ament_python</build_type>
   </export>
-  <exec_depend>interfacea</exec_depend>
+  <exec_depend>interfaces</exec_depend>
 </package>
