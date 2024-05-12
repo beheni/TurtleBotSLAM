@@ -4,6 +4,7 @@ from rclpy import qos
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
+from geometry_msgs.msg import Pose2D
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 
 from std_msgs.msg import String
@@ -82,8 +83,10 @@ class RunEKF(Node):
         # self.get_logger().info(f'Real coordinates: {odometry.pose.pose.position.x - self.base_x, odometry.pose.pose.position.y - self.base_y}')
         # self.publisher.publish(String(data=str(self.coordinates)))
         all_data = SLAMdata()
+        all_data.robot_coords = Pose2D(x=self.coordinates[0], y=self.coordinates[1], theta=self.coordinates[2])
         all_data.scan_data = lidar
         all_data.odom_data = odometry
+        all_data.landmarks = self.landmarks
 
         self.publisher.publish(all_data)
         
