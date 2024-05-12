@@ -33,6 +33,10 @@ class Visualize(Node):
     
     def SLAM_callback(self, scan_msg):
         angles = np.linspace(scan_msg.scan_data.angle_min, scan_msg.scan_data.angle_max, len(scan_msg.scan_data.ranges))
+        angles = angles.reshape(2, -1)
+        angles = np.concatenate((angles[1], angles[0]))
+        angles -= np.pi/2
+        self.get_logger().info(f'Angles: {angles}')
         ranges = np.array(scan_msg.scan_data.ranges)
         
         coords = np.array([scan_msg.robot_coords.x, scan_msg.robot_coords.y, scan_msg.robot_coords.theta])
@@ -52,7 +56,9 @@ class Visualize(Node):
         self.ax.set_xticks(np.arange(-100, 100, 1))
         self.ax.set_yticks(np.arange(-100, 100, 1))
 
-        self.ax.scatter(coords[0], coords[1], c='b', s=10, label='Robot Path')
+        dx = 0.5 * np.cos(coords[2])
+        dy = 0.5 * np.sin(coords[2])
+        self.ax.arrow(coords[0], coords[1], dx, dy, width=0.1, color="blue", label='Robot Path')
         self.ax.scatter(landmarks[:, 0], landmarks[:, 1], c='r', s=2, label='Landmarks')
         self.ax.scatter(transformed_ranges[:, 0], transformed_ranges[:, 1], c='g', s=2, label='Lidar Scan')
 

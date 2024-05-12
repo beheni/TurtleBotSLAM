@@ -7,8 +7,56 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Pose2D
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 
+import math
 from std_msgs.msg import String
 from interfaces.msg import SLAMdata
+
+from geometry_msgs.msg import TransformStamped
+from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
+
+
+def quaternion_from_euler(ai, aj, ak):
+    ai /= 2.0
+    aj /= 2.0
+    ak /= 2.0
+    ci = math.cos(ai)
+    si = math.sin(ai)
+    cj = math.cos(aj)
+    sj = math.sin(aj)
+    ck = math.cos(ak)
+    sk = math.sin(ak)
+    cc = ci*ck
+    cs = ci*sk
+    sc = si*ck
+    ss = si*sk
+
+    q = np.empty((4, ))
+    q[0] = cj*sc - sj*cs
+    q[1] = cj*ss + sj*cc
+    q[2] = cj*cs - sj*sc
+    q[3] = cj*cc + sj*ss
+
+    return q
+
+def create_static_transformation(transformation):
+    t = TransformStamped()
+    t.header.stamp = rclpy.clock.Clock().now().to_msg()
+    t.header.frame_id = "rplidar_link"
+    t.child_frame_id = transformation[1]
+
+    t.transform.translation.x = float(transformation[2])
+    t.transform.translation.y = float(transformation[3])
+    t.transform.translation.z = float(transformation[4])
+
+    quat = quaternion_from_euler(
+            float(transformation[5]), float(transformation[6]), float(transformation[7]))
+    t.transform.rotation.x = quat[0]
+    t.transform.rotation.y = quat[1]
+    t.transform.rotation.z = quat[2]
+    t.transform.rotation.w = quat[3]
+
+    return t
+
 
 class RunEKF(Node):
     
@@ -47,7 +95,10 @@ class RunEKF(Node):
 
     def __init__(self):
         super().__init__('EKF_SLAM')
-        self.coordinates = np.array([0, 0, 0])
+        transformation = ['rplidar_link', 'base_link', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        static_transform = create_static_transformation(transformation)
+        self.coordinates = np.array([0, 0, static_transform.transform.rotation.z])
+
         self.landmarks = [] # Nx2
         self.sigma_xx = self.R = np.array([[1e-3, 0, 0], [0, 1e-3, 0], [0, 0, 1e-6]])
         self.sigma_mm = []
@@ -72,10 +123,18 @@ class RunEKF(Node):
             self.base_x = odometry.pose.pose.position.x
             self.base_y = odometry.pose.pose.position.y
         angles = np.arange(lidar.angle_min, lidar.angle_max, lidar.angle_increment)
+        angles = angles.reshape(2, -1)
+        angles = np.concatenate((angles[1], angles[0]))
+        angles -= np.pi/2
         ranges = np.array(lidar.ranges)
-        ranges = np.array(list(zip(ranges, angles)))
         interval = 80
-        ranges = ranges[np.where(ranges[:,0] != np.inf)]
+        valid_ranges = np.logical_and(ranges > lidar.range_min, ranges < lidar.range_max)
+        angles = angles[valid_ranges]
+        ranges = ranges[valid_ranges]
+
+        ranges = np.array(list(zip(ranges, angles)))
+        # self.get_logger().info(f'angle_min: {lidar.angle_min}\n angle_max: {lidar.angle_max} \nRanges: {ranges}')
+
         ranges = ranges[::interval]
         self.prediction_step(v, w, self.delta)
         self.correction_step(ranges) #(Nx2)
