@@ -1,43 +1,72 @@
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import LaserScan
 import matplotlib.pyplot as plt
 import numpy as np
 from rclpy import qos
+from interfaces.msg import SLAMdata
 
-class ParseLidar(Node):
+class Visualize(Node):
     def __init__(self):
-        super().__init__('parse_odom')
+        super().__init__('visualize_data')
         self.subscription = self.create_subscription(
-            LaserScan,
-            'scan',
-            self.lidar_callback,
+            SLAMdata,
+            'SLAM_data',
+            self.SLAM_callback,
             qos_profile=qos.qos_profile_sensor_data)
-        self.fig, self.ax = plt.subplots(subplot_kw={'projection': 'polar'})
+        self.fig, self.ax = plt.subplots()
         plt.ion()  # Enable interactive mode for continuous updating
         plt.show()
 
+    @staticmethod
+    def transform_to_rectangular(msg, coords):
+        x, y, theta = coords
+        ro, phi = msg
+        x += ro * np.cos(phi + theta)
+        y += ro * np.sin(phi + theta)
+        return np.array([x, y])
+        
+
+    def transform_scan(self, scan_msg, coords):
+        return np.apply_along_axis(self.transform_to_rectangular, 1, scan_msg, coords)
+        
+
     
-    def lidar_callback(self, scan_msg):
-        angles = np.arange(scan_msg.angle_min, scan_msg.angle_max, scan_msg.angle_increment)
-        ranges = np.array(scan_msg.ranges)
-        valid_ranges = np.logical_and(ranges > scan_msg.range_min, ranges < scan_msg.range_max)
-        valid_angles = angles[valid_ranges]
+    def SLAM_callback(self, scan_msg):
+        angles = np.linspace(scan_msg.scan_data.angle_min, scan_msg.scan_data.angle_max, len(scan_msg.scan_data.ranges))
+        ranges = np.array(scan_msg.scan_data.ranges)
+        
+        coords = np.array([scan_msg.robot_coords.x, scan_msg.robot_coords.y, scan_msg.robot_coords.theta])
+        landmarks = np.array(scan_msg.landmarks).reshape(-1, 2)
+
+        valid_ranges = np.logical_and(ranges > scan_msg.scan_data.range_min, ranges < scan_msg.scan_data.range_max)
+        angles = angles[valid_ranges]
         valid_ranges = ranges[valid_ranges]
+        ranges = np.array(list(zip(valid_ranges, angles)))
+        self.get_logger().info(f'Ranges: {ranges.shape}')
+        transformed_ranges = self.transform_scan(ranges, coords)
+        self.get_logger().info(f'Transformed ranges: {transformed_ranges.shape}')
+    
         self.ax.clear()
-        self.ax.scatter(valid_angles, valid_ranges, s=1)
-        self.ax.set_theta_zero_location('N')
-        self.ax.set_title('Laser Scan Data')
+        self.ax.set_title('SLAM Data')
+
+        self.ax.set_xticks(np.arange(-100, 100, 1))
+        self.ax.set_yticks(np.arange(-100, 100, 1))
+
+        self.ax.scatter(coords[0], coords[1], c='b', s=10, label='Robot Path')
+        self.ax.scatter(landmarks[:, 0], landmarks[:, 1], c='r', s=2, label='Landmarks')
+        self.ax.scatter(transformed_ranges[:, 0], transformed_ranges[:, 1], c='g', s=2, label='Lidar Scan')
+
+
+
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
-        self.get_logger().info('Received lidar data')
-        # self.get_logger().info(f'Ranges: x={scan_msg.ranges}')
+
 
 def main():
     rclpy.init()
-    parse_lidar = ParseLidar()
-    rclpy.spin(parse_lidar)
-    parse_lidar.destroy_node()
+    visualize = Visualize()
+    rclpy.spin(visualize)
+    visualize.destroy_node()
     rclpy.shutdown()
 
 
