@@ -30,12 +30,21 @@ class Visualize(Node):
         return np.apply_along_axis(self.transform_to_rectangular, 1, scan_msg, coords)
         
 
+    @staticmethod
+    def normalize_angle(angle):
+        if angle > np.pi:
+            angle %= np.pi
+            angle -= np.pi
+        elif angle < -np.pi:
+            angle %= np.pi
+        return angle
     
     def SLAM_callback(self, scan_msg):
         angles = np.linspace(scan_msg.scan_data.angle_min, scan_msg.scan_data.angle_max, len(scan_msg.scan_data.ranges))
         angles = angles.reshape(2, -1)
         angles = np.concatenate((angles[1], angles[0]))
         angles -= np.pi/2
+        angles = np.array([self.normalize_angle(angle) for angle in angles])
         self.get_logger().info(f'Angles: {angles}')
         ranges = np.array(scan_msg.scan_data.ranges)
         

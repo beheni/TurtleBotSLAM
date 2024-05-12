@@ -126,6 +126,7 @@ class RunEKF(Node):
         angles = angles.reshape(2, -1)
         angles = np.concatenate((angles[1], angles[0]))
         angles -= np.pi/2
+        angles = np.array(list(map(self.normalize_angle, angles)))
         ranges = np.array(lidar.ranges)
         interval = 80
         valid_ranges = np.logical_and(ranges > lidar.range_min, ranges < lidar.range_max)
@@ -151,7 +152,14 @@ class RunEKF(Node):
         
         # self.get_logger().info(f'Coordinates: {self.coordinates}, landmark count: {self.landmarks.shape[0]}')
 
-    
+    @staticmethod
+    def normalize_angle(angle):
+        if angle > np.pi:
+            angle %= np.pi
+            angle -= np.pi
+        elif angle < -np.pi:
+            angle %= np.pi
+        return angle
 
     def prediction_step(self, v, w, dt):
         x, y, theta = self.coordinates
@@ -162,11 +170,7 @@ class RunEKF(Node):
             x += -v/w * np.sin(theta) + v/w * np.sin(theta + w*dt)
             y += v/w * np.cos(theta) - v/w * np.cos(theta + w*dt)
             theta += (w*dt)
-            if theta > np.pi:
-                theta %= np.pi
-                theta -= np.pi
-            elif theta < -np.pi:
-                theta %= np.pi
+            theta = RunEKF.normalize_angle(theta)
 
         G = RunEKF.G(self.coordinates, v, w, dt)
 
@@ -181,16 +185,15 @@ class RunEKF(Node):
         x, y, theta = self.coordinates
         for ro, phi in ranges:
             maybe_new_landmark = np.array([x + ro*np.cos(phi + theta), y + ro*np.sin(phi + theta)]) #absolute coordinates
-
+            maybe_new_landmark_polar = np.array([ro, phi])
             distances = np.zeros(len(self.landmarks))
             for k in range(len(self.landmarks)):
                 z_k = self.landmarks[k] #self landmarks should be in absolute coordinates
-
-
                 delta_k = z_k - np.array([x, y])
                 q_k = delta_k.T @ delta_k
                 z_k_hat = np.array([np.sqrt(q_k), np.arctan2(delta_k[1], delta_k[0]) - theta]) #polar coordinates
-
+                z_k_hat[1] = RunEKF.normalize_angle(z_k_hat[1])
+                self.get_logger().info(f'z_k_hat: {z_k_hat}')
                 H = RunEKF.H(q_k, delta_k, k, len(self.landmarks))    
                 sigma = np.block([[self.sigma_xx, self.sigma_xm],[self.sigma_xm.T, self.sigma_mm]])
                 # self.get_logger().info(f'sigma: {sigma}')
@@ -198,18 +201,16 @@ class RunEKF(Node):
                 # self.get_logger().info(f'psi: {psi}')
                 # self.get_logger().info(f'psi_inv: {np.linalg.inv(psi)}')
                 # self.get_logger().info(f'H: {H}')
-                maybe_new_landmark_polar = np.array([ro, phi]) #relative????
-
-                pi_k_distance = (maybe_new_landmark_polar - z_k_hat).T @ np.linalg.inv(psi) @ (maybe_new_landmark_polar - z_k_hat)
+                 #relative????
+                difference = maybe_new_landmark_polar - z_k_hat
+                difference[1] = RunEKF.normalize_angle(difference[1])
+                pi_k_distance = difference.T @ np.linalg.inv(psi) @ difference
 
 
                 # self.get_logger().info(f'new_landmark-z_k_hat: {maybe_new_landmark_polar-z_k_hat}')
                 # self.get_logger().info(f'pi_k_distance: {pi_k_distance}')
                 # pi_k_distance = (maybe_new_landmark - z_k_hat).T @ psi @ (maybe_new_landmark - z_k_hat)
                 distances[k] = pi_k_distance
-
-
-            maybe_new_landmark_polar = np.array([ro, phi])
 
             landmark_index = 0
             if len(distances) == 0:
@@ -233,15 +234,18 @@ class RunEKF(Node):
 
             delta_k = assined_landmark - np.array([x, y])
             q_k = delta_k.T @ delta_k
-            z_k_hat = np.array([np.sqrt(q_k), np.arctan2(delta_k[1], delta_k[0]) - theta])
+            z_k_hat = np.array([np.sqrt(q_k), RunEKF.normalize_angle(np.arctan2(delta_k[1], delta_k[0]) - theta)])
 
             H = RunEKF.H(q_k, delta_k, landmark_index, len(self.landmarks))
             psi_new_landmark = H @ sigma @ H.T + self.Q_lidar_error
             Kalman_gain = sigma @ H.T @ np.linalg.inv(psi_new_landmark)
             # Kalman_gain = sigma @ H.T @ psi_new_landmark
-            Kalman_gain_new_landmark = Kalman_gain @ (maybe_new_landmark_polar - z_k_hat)
+            difference = maybe_new_landmark_polar - z_k_hat
+            difference[1] = RunEKF.normalize_angle(difference[1])
+            Kalman_gain_new_landmark = Kalman_gain @ (difference)
 
             self.coordinates += Kalman_gain_new_landmark[:3]
+            self.coordinates[2] = RunEKF.normalize_angle(self.coordinates[2])
             self.landmarks += Kalman_gain_new_landmark[3:].reshape(-1, 2) #errorneous behaviour
             sigma_new = (np.eye(3 + 2*len(self.landmarks)) - Kalman_gain @ H) @ sigma 
             self.sigma_xx = sigma_new[:3, :3]
