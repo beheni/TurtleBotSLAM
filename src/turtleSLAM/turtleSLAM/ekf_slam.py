@@ -86,7 +86,7 @@ class RunEKF(Node):
         all_data.robot_coords = Pose2D(x=self.coordinates[0], y=self.coordinates[1], theta=self.coordinates[2])
         all_data.scan_data = lidar
         all_data.odom_data = odometry
-        all_data.landmarks = self.landmarks
+        all_data.landmarks = list(self.landmarks.flatten())
 
         self.publisher.publish(all_data)
         
