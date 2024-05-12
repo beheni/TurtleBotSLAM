@@ -7,7 +7,7 @@ from sensor_msgs.msg import LaserScan
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 
 from std_msgs.msg import String
-from interfaces.msg import SLAM_data
+from interfaces.msg import SLAMdata
 
 class RunEKF(Node):
     
@@ -59,7 +59,7 @@ class RunEKF(Node):
         self.Q_lidar_error = np.array([[8e-6, 0], [0, 1e-6]])
 
         self.threshold_alpha = 0.25
-        self.publisher = self.create_publisher(String, '/coordinates', qos_profile=qos.qos_profile_sensor_data)
+        self.publisher = self.create_publisher(SLAMdata, '/SLAM_data', qos_profile=qos.qos_profile_sensor_data)
         self.base_x = None
         self.base_y = None
 
@@ -81,7 +81,7 @@ class RunEKF(Node):
         self.get_logger().info(f'Coordinates: {self.coordinates}')
         # self.get_logger().info(f'Real coordinates: {odometry.pose.pose.position.x - self.base_x, odometry.pose.pose.position.y - self.base_y}')
         # self.publisher.publish(String(data=str(self.coordinates)))
-        all_data = SLAM_data()
+        all_data = SLAMdata()
         all_data.scan_data = lidar
         all_data.odom_data = odometry
 

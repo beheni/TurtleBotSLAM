@@ -1,2 +1,3 @@
 sensor_msgs/LaserScan scan_data
 nav_msgs/Odometry odom_data
+int64 radius
