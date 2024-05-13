@@ -4,12 +4,14 @@ from rclpy import qos
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import Pose2D
+from geometry_msgs.msg import PoseStamped
+from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import PointField
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 
 import math
-from std_msgs.msg import String
-from interfaces.msg import SLAMdata
+# from std_msgs.msg import String
+# from interfaces.msg import SLAMdata
 
 from geometry_msgs.msg import TransformStamped
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
@@ -111,7 +113,9 @@ class RunEKF(Node):
         self.Q_lidar_error = np.array([[8e-6, 0], [0, 1e-6]])
 
         self.threshold_alpha = 0.25
-        self.publisher = self.create_publisher(SLAMdata, '/SLAM_data', qos_profile=qos.qos_profile_sensor_data)
+        # self.publisher = self.create_publisher(SLAMdata, '/SLAM_data', qos_profile=qos.qos_profile_sensor_data)
+        self.publisher_l = self.create_publisher(PointCloud2, '/landmarks',1)
+        self.publisher_p = self.create_publisher(PoseStamped, '/position', 1)
         self.base_x = None
         self.base_y = None
 
@@ -142,13 +146,39 @@ class RunEKF(Node):
         self.get_logger().info(f'Coordinates: {self.coordinates}')
         # self.get_logger().info(f'Real coordinates: {odometry.pose.pose.position.x - self.base_x, odometry.pose.pose.position.y - self.base_y}')
         # self.publisher.publish(String(data=str(self.coordinates)))
-        all_data = SLAMdata()
-        all_data.robot_coords = Pose2D(x=self.coordinates[0], y=self.coordinates[1], theta=self.coordinates[2])
-        all_data.scan_data = lidar
-        all_data.odom_data = odometry
-        all_data.landmarks = list(self.landmarks.flatten())
+        robot_pose = PoseStamped()
+        robot_pose.pose.position.x =  self.coordinates[0]
+        robot_pose.pose.position.y =  self.coordinates[1]
+        robot_pose.pose.position.z =  0.0
 
-        self.publisher.publish(all_data)
+        robot_pose.header = odometry.header
+
+        robot_pose.pose.orientation.x = 0.0
+        robot_pose.pose.orientation.y = 0.0
+        robot_pose.pose.orientation.z = np.cos(self.coordinates[2])
+        robot_pose.pose.orientation.w = 1.0
+        self.publisher_p.publish(robot_pose)
+
+
+        landmarks = PointCloud2()
+        landmarks.header = odometry.header
+
+        landmarks.height = 1
+        landmarks.width = self.landmarks.shape[0]
+        landmarks.fields = [PointField(name='x', offset=0, datatype=PointField.FLOAT64, count=1),
+                                        PointField(name='y', offset=8, datatype=PointField.FLOAT64, count=1)]
+        landmarks.point_step = 16
+        landmarks.row_step = 16*self.landmarks.shape[0]
+        landmarks.is_dense = False
+        landmarks.is_bigendian = False
+        landmarks.data = self.landmarks.flatten().astype(np.float64).tobytes()
+
+        self.publisher_l.publish(landmarks)
+
+        # robot_pose.scan_data = lidar
+        # robot_pose.odom_data = odometry
+        # robot_pose.landmarks = list(self.landmarks.flatten())
+        # 
         
         # self.get_logger().info(f'Coordinates: {self.coordinates}, landmark count: {self.landmarks.shape[0]}')
 

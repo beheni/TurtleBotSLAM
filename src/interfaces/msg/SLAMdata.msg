@@ -1,8 +1,8 @@
 sensor_msgs/LaserScan scan_data
 nav_msgs/Odometry odom_data
-geometry_msgs/Pose2D robot_coords
+geometry_msgs/PoseStamped robot_coords
 
-float64[] landmarks
+sensor_msgs/PointCloud2 landmarks
 
 
 
