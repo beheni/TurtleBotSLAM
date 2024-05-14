@@ -223,7 +223,6 @@ class RunEKF(Node):
                 q_k = delta_k.T @ delta_k
                 z_k_hat = np.array([np.sqrt(q_k), np.arctan2(delta_k[1], delta_k[0]) - theta]) #polar coordinates
                 z_k_hat[1] = RunEKF.normalize_angle(z_k_hat[1])
-                self.get_logger().info(f'z_k_hat: {z_k_hat}')
                 H = RunEKF.H(q_k, delta_k, k, len(self.landmarks))    
                 sigma = np.block([[self.sigma_xx, self.sigma_xm],[self.sigma_xm.T, self.sigma_mm]])
                 # self.get_logger().info(f'sigma: {sigma}')
