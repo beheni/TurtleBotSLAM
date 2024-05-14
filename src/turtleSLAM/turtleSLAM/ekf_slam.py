@@ -101,31 +101,25 @@ class RunEKF(Node):
         static_transform = create_static_transformation(transformation)
         self.coordinates = np.array([0, 0, static_transform.transform.rotation.z])
 
+        self.all_landmarks = []
         self.landmarks =[] # Nx2
         self.sigma_xx = self.R = np.array([[1e-3, 0, 0], [0, 1e-3, 0], [0, 0, 1e-6]])
         self.sigma_mm = []
         self.sigma_xm = []
-        self.delta = 0.1
+        self.delta = 0.20
         self.subscription = ApproximateTimeSynchronizer([Subscriber(self, Odometry, '/odom', qos_profile=qos.qos_profile_sensor_data), 
                                              Subscriber(self, LaserScan, '/scan')], 10, self.delta)
         self.subscription.registerCallback(self.callback)
-
+        self.max_landmarks = 100
         self.Q_lidar_error = np.array([[8e-6, 0], [0, 1e-6]])
-
-        self.threshold_alpha = 0.1
+        self.threshold_alpha = 0.5
         # self.publisher = self.create_publisher(SLAMdata, '/SLAM_data', qos_profile=qos.qos_profile_sensor_data)
         self.publisher_l = self.create_publisher(PointCloud2, '/landmarks',1)
         self.publisher_p = self.create_publisher(PoseStamped, '/position', 1)
-        self.base_x = None
-        self.base_y = None
-
 
     def callback(self, odometry, lidar):
         v = odometry.twist.twist.linear.x
         w = odometry.twist.twist.angular.z
-        if not self.base_x:
-            self.base_x = odometry.pose.pose.position.x
-            self.base_y = odometry.pose.pose.position.y
         angles = np.arange(lidar.angle_min, lidar.angle_max, lidar.angle_increment)
         angles = angles.reshape(2, -1)
         angles = np.concatenate((angles[1], angles[0]))
@@ -133,6 +127,7 @@ class RunEKF(Node):
         angles = np.array(list(map(self.normalize_angle, angles)))
         ranges = np.array(lidar.ranges)
         interval = 40
+    
         valid_ranges = np.logical_and(ranges > lidar.range_min, ranges < lidar.range_max)
         angles = angles[valid_ranges]
         ranges = ranges[valid_ranges]
@@ -143,13 +138,14 @@ class RunEKF(Node):
         ranges = ranges[::interval]
         self.prediction_step(v, w, self.delta)
         self.correction_step(ranges) #(Nx2)
-        self.get_logger().info(f'Coordinates: {self.coordinates}')
+        self.remove_extra_landmarks()
+        self.get_logger().info(f'Coordinates: {self.coordinates} \n Landmarks: {self.landmarks.shape[0]}')
         # self.get_logger().info(f'Real coordinates: {odometry.pose.pose.position.x - self.base_x, odometry.pose.pose.position.y - self.base_y}')
         # self.publisher.publish(String(data=str(self.coordinates)))
         robot_pose = PoseStamped()
         robot_pose.pose.position.x =  self.coordinates[0]
         robot_pose.pose.position.y =  self.coordinates[1]
-        robot_pose.pose.position.z =  0.0
+        robot_pose.pose.position.z =  self.coordinates[2]
 
         robot_pose.header = odometry.header
 
@@ -157,7 +153,7 @@ class RunEKF(Node):
         robot_pose.pose.orientation.y = 0.0
         robot_pose.pose.orientation.z = np.cos(self.coordinates[2])
         robot_pose.pose.orientation.w = 1.0
-        self.publisher_p.publish(robot_pose)
+        
 
 
         landmarks = PointCloud2()
@@ -173,8 +169,9 @@ class RunEKF(Node):
         landmarks.is_bigendian = False
         landmarks.data = self.landmarks.flatten().astype(np.float64).tobytes()
 
+        self.publisher_p.publish(robot_pose)
         self.publisher_l.publish(landmarks)
-
+        
         # robot_pose.scan_data = lidar
         # robot_pose.odom_data = odometry
         # robot_pose.landmarks = list(self.landmarks.flatten())
@@ -247,6 +244,7 @@ class RunEKF(Node):
                 landmark_index = np.argmin(pi_k_distance)
                 closest_dist = pi_k_distance[landmark_index]
                 if closest_dist > self.threshold_alpha:
+                    self.all_landmarks = np.vstack([self.all_landmarks, maybe_new_landmark])
                     self.landmarks = np.vstack([self.landmarks, maybe_new_landmark])
                     self.sigma_mm = np.block([[self.sigma_mm, np.zeros((self.sigma_mm.shape[0], 2))],
                                           [np.zeros((2, self.sigma_mm.shape[1])), self.Q_lidar_error]])
@@ -254,8 +252,10 @@ class RunEKF(Node):
                     landmark_index = self.landmarks.shape[0] - 1
                     assigned_landmark = maybe_new_landmark
                 else:
+                    self.get_logger().info(f'Coordinates of the closest landmark: {self.landmarks[landmark_index]} \n new_landmark: {maybe_new_landmark}')
                     assigned_landmark = self.landmarks[landmark_index]
             else:
+                self.all_landmarks = np.array([maybe_new_landmark])
                 self.landmarks = np.array([maybe_new_landmark])
                 self.sigma_mm = self.Q_lidar_error
                 self.sigma_xm = np.zeros((3, 2))
@@ -280,83 +280,13 @@ class RunEKF(Node):
             self.sigma_xx = sigma_new[:3, :3]
             self.sigma_mm = sigma_new[3:, 3:]
             self.sigma_xm = sigma_new[:3, 3:]
-            
-            
-
-        
-    
-    # def correction_step(self, ranges):
-    #     x, y, theta = self.coordinates
-    #     for ro, phi in ranges:
-    #         maybe_new_landmark = np.array([x + ro*np.cos(phi + theta), y + ro*np.sin(phi + theta)]) #absolute coordinates
-    #         maybe_new_landmark_polar = np.array([ro, phi])
-    #         distances = np.zeros(len(self.landmarks))
-    #         for k in range(len(self.landmarks)):
-    #             z_k = self.landmarks[k] #self landmarks should be in absolute coordinates
-    #             delta_k = z_k - np.array([x, y])
-    #             q_k = delta_k.T @ delta_k
-    #             z_k_hat = np.array([np.sqrt(q_k), np.arctan2(delta_k[1], delta_k[0]) - theta]) #polar coordinates
-    #             z_k_hat[1] = RunEKF.normalize_angle(z_k_hat[1])
-    #             H = RunEKF.H(q_k, delta_k, k, len(self.landmarks))    
-    #             sigma = np.block([[self.sigma_xx, self.sigma_xm],[self.sigma_xm.T, self.sigma_mm]])
-    #             # self.get_logger().info(f'sigma: {sigma}')
-    #             psi = H @ sigma @ H.T + self.Q_lidar_error
-    #             # self.get_logger().info(f'psi: {psi}')
-    #             # self.get_logger().info(f'psi_inv: {np.linalg.inv(psi)}')
-    #             # self.get_logger().info(f'H: {H}')
-    #              #relative????
-    #             difference = maybe_new_landmark_polar - z_k_hat
-    #             difference[1] = RunEKF.normalize_angle(difference[1])
-    #             pi_k_distance = difference.T @ np.linalg.inv(psi) @ difference
-
-
-    #             # self.get_logger().info(f'new_landmark-z_k_hat: {maybe_new_landmark_polar-z_k_hat}')
-    #             # self.get_logger().info(f'pi_k_distance: {pi_k_distance}')
-    #             # pi_k_distance = (maybe_new_landmark - z_k_hat).T @ psi @ (maybe_new_landmark - z_k_hat)
-    #             distances[k] = pi_k_distance
-
-    #         landmark_index = 0
-    #         if len(distances) == 0:
-    #             self.landmarks = np.array([maybe_new_landmark])
-    #             self.sigma_mm = self.Q_lidar_error
-    #             self.sigma_xm = np.zeros((3, 2))
-    #             landmark_index = 0
-    #         elif distances[np.argmin(distances)] > self.threshold_alpha:
-    #             self.landmarks = np.vstack([self.landmarks, maybe_new_landmark])
-    #             self.sigma_mm = np.block([[self.sigma_mm, np.zeros((self.sigma_mm.shape[0], 2))],
-    #                                       [np.zeros((2, self.sigma_mm.shape[1])), self.Q_lidar_error]])
-    #             self.sigma_xm = np.block([[self.sigma_xm, np.zeros((3, 2))]])
-    #             landmark_index = self.landmarks.shape[0] - 1
-    #         else:
-    #             landmark_index = np.argmin(distances)
-
-    #         sigma = np.block([[self.sigma_xx, self.sigma_xm],[self.sigma_xm.T, self.sigma_mm]])
-    #         # self.get_logger().info(f'sigma: {sigma}')
-
-    #         assined_landmark = self.landmarks[landmark_index]
-
-    #         delta_k = assined_landmark - np.array([x, y])
-    #         q_k = delta_k.T @ delta_k
-    #         z_k_hat = np.array([np.sqrt(q_k), RunEKF.normalize_angle(np.arctan2(delta_k[1], delta_k[0]) - theta)])
-
-    #         H = RunEKF.H(q_k, delta_k, landmark_index, len(self.landmarks))
-    #         psi_new_landmark = H @ sigma @ H.T + self.Q_lidar_error
-    #         Kalman_gain = sigma @ H.T @ np.linalg.inv(psi_new_landmark)
-    #         # Kalman_gain = sigma @ H.T @ psi_new_landmark
-    #         difference = maybe_new_landmark_polar - z_k_hat
-    #         difference[1] = RunEKF.normalize_angle(difference[1])
-    #         Kalman_gain_new_landmark = Kalman_gain @ (difference)
-
-    #         self.coordinates += Kalman_gain_new_landmark[:3]
-    #         self.coordinates[2] = RunEKF.normalize_angle(self.coordinates[2])
-    #         self.landmarks += Kalman_gain_new_landmark[3:].reshape(-1, 2) #errorneous behaviour
-    #         sigma_new = (np.eye(3 + 2*len(self.landmarks)) - Kalman_gain @ H) @ sigma 
-    #         self.sigma_xx = sigma_new[:3, :3]
-    #         self.sigma_mm = sigma_new[3:, 3:]
-    #         self.sigma_xm = sigma_new[:3, 3:]
-
-
-        
+                    
+    def remove_extra_landmarks(self):
+        if self.landmarks.shape[0] > self.max_landmarks:
+            self.landmarks = self.landmarks[len(self.landmarks) - self.max_landmarks:]
+            self.sigma_mm = self.sigma_mm[len(self.sigma_mm) - 2*self.max_landmarks:, len(self.sigma_mm) - 2*self.max_landmarks:]
+            self.sigma_xm = self.sigma_xm[:, self.sigma_xm.shape[1] - 2*self.max_landmarks:]
+            self.get_logger().info(f'Sigma: {self.sigma_xm.shape[1]}')
 
 def main():
     rclpy.init()
