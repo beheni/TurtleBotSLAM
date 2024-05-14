@@ -108,6 +108,8 @@ class Visualize(Node):
         # self.get_logger().info(f'Transformed ranges: {transformed_ranges.shape}')
     
         self.ax.clear()
+        self.ax.set_facecolor("#303030")
+        self.ax.grid(True)
         self.ax.set_title('SLAM Data')
 
         self.ax.set_xticks(np.arange(-10, 10, 1))
@@ -117,9 +119,9 @@ class Visualize(Node):
         
         dx = 0.5 * np.cos(theta)
         dy = 0.5 * np.sin(theta)
-        self.ax.arrow(x, y, dx, dy, width=0.1, color="blue", label='Robot Path')
-        self.ax.scatter(lm[:, 0], lm[:, 1], c='r', s=2, label='Landmarks')
-        self.ax.scatter(transformed_ranges[:, 0], transformed_ranges[:, 1], c='g', s=2, label='Lidar Scan')
+        self.ax.arrow(x, y, dx, dy, width=0.05, color="white", label='Robot Path')
+        self.ax.scatter(transformed_ranges[:, 0], transformed_ranges[:, 1], c='g', s=3, label='Lidar Scan')
+        self.ax.scatter(lm[:, 0], lm[:, 1], c='r', s=4, label='Landmarks')
 
 
 
