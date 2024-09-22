@@ -6,15 +6,13 @@ from rclpy import qos
 from sensor_msgs.msg import PointCloud2, LaserScan
 from geometry_msgs.msg import PoseStamped
 from message_filters import ApproximateTimeSynchronizer, Subscriber
-
+from interfaces.msg import Landmarks
 from tf2_ros import TransformBroadcaster, TransformStamped
 
 class Visualize(Node):
     def __init__(self):
         super().__init__('visualize_data')
-        self.subscription = ApproximateTimeSynchronizer([Subscriber(self, PoseStamped, "/position"),
-                                                          Subscriber(self, PointCloud2, "/landmarks")], 10, 1)
-        self.subscription.registerCallback(self.SLAM_callback)
+        self.subscription = self.create_subscription(Landmarks, "/landmarks", self.SLAM_callback, qos.qos_profile_sensor_data)
         self.fig, self.ax = plt.subplots()
         plt.ion()  # Enable interactive mode for continuous updating
         plt.show()
@@ -41,11 +39,13 @@ class Visualize(Node):
             angle %= np.pi
         return angle
     
-    def SLAM_callback(self, position, landmarks):
-        x,y,theta = position.pose.position.x, position.pose.position.y, position.pose.position.z
+    def SLAM_callback(self, landmarks):
+        x,y,theta = landmarks.pose.pose.position.x, landmarks.pose.pose.position.y, landmarks.pose.pose.position.z
     
         self.get_logger().info(f'Position: {x}, {y}, {theta}')
-        lm = np.frombuffer(landmarks.data, dtype=np.float64).reshape(-1, 2)
+        lm = landmarks.landmarks
+        lm_x = [l.x for l in lm]
+        lm_y = [l.y for l in lm]
 
         self.ax.clear()
         self.ax.set_facecolor("#303030")
@@ -56,11 +56,11 @@ class Visualize(Node):
         self.ax.set_yticks(np.arange(-100, 10, 1))
         self.ax.set_xlim(-10, 10)
         self.ax.set_ylim(-10, 10)
-        
+
         dx = 0.5 * np.cos(theta)
         dy = 0.5 * np.sin(theta)
         self.ax.arrow(x, y, dx, dy, width=0.05, color="white", label='Robot Path')
-        self.ax.scatter(lm[:, 0], lm[:, 1], c='r', s=4, label='Landmarks')
+        self.ax.scatter(lm_x, lm_y, c='r', s=4, label='Landmarks')
 
 
 

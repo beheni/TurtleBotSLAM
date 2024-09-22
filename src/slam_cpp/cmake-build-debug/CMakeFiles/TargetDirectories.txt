@@ -1,0 +1,11 @@
+/home/ostap/TurtleBotSLAM/src/slam_cpp/cmake-build-debug/CMakeFiles/uninstall.dir
+/home/ostap/TurtleBotSLAM/src/slam_cpp/cmake-build-debug/CMakeFiles/slam_cpp_uninstall.dir
+/home/ostap/TurtleBotSLAM/src/slam_cpp/cmake-build-debug/CMakeFiles/coordinate_converter.dir
+/home/ostap/TurtleBotSLAM/src/slam_cpp/cmake-build-debug/CMakeFiles/landmark_corrector.dir
+/home/ostap/TurtleBotSLAM/src/slam_cpp/cmake-build-debug/CMakeFiles/test.dir
+/home/ostap/TurtleBotSLAM/src/slam_cpp/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/ostap/TurtleBotSLAM/src/slam_cpp/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/ostap/TurtleBotSLAM/src/slam_cpp/cmake-build-debug/CMakeFiles/list_install_components.dir
+/home/ostap/TurtleBotSLAM/src/slam_cpp/cmake-build-debug/CMakeFiles/install.dir
+/home/ostap/TurtleBotSLAM/src/slam_cpp/cmake-build-debug/CMakeFiles/install/local.dir
+/home/ostap/TurtleBotSLAM/src/slam_cpp/cmake-build-debug/CMakeFiles/install/strip.dir

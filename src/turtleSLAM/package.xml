@@ -15,7 +15,7 @@
   <export>
     <build_type>ament_python</build_type>
   </export>
-  <!-- <exec_depend>interfaces</exec_depend> -->
+  <exec_depend>interfaces</exec_depend>
 <!-- 
   <depend>sensor_msgs</depend>
   <depend>nav_msgs</depend>
